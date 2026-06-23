@@ -3,6 +3,53 @@ kind: Namespace
 metadata:
   name: temporal
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-postgres
+  namespace: temporal
+spec:
+  selector:
+    app: temporal-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-postgres
+  namespace: temporal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-postgres
+  template:
+    metadata:
+      labels:
+        app: temporal-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          env:
+            - name: POSTGRES_USER
+              value: temporal
+            - name: POSTGRES_PASSWORD
+              value: temporalpw
+            - name: POSTGRES_DB
+              value: temporal
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: pgdata
+          emptyDir: {}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,8 +69,16 @@ spec:
         - name: temporal
           image: temporalio/auto-setup:1.23.0
           env:
-            - name: CASSANDRA_SEEDS
-              value: localhost
+            - name: DB
+              value: postgresql
+            - name: DB_PORT
+              value: 5432
+            - name: POSTGRES_USER
+              value: temporal
+            - name: POSTGRES_PWD
+              value: temporalpw
+            - name: POSTGRES_SEEDS
+              value: temporal-postgres
           ports:
             - containerPort: 7233
           resources:
