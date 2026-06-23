@@ -87,6 +87,50 @@ infra\bootstrap-argocd.ps1 -RepoURL 'https://github.com/your-org/your-repo'
 # 4. Port-forward ArgoCD UI locally to login and observe sync
 
 ```
+
+## Troubleshooting & Reconciliation
+
+**Loki Configuration Issue (schema_config)**
+
+If Loki pod fails with error `Please define loki.storage.bucketNames.chunks`:
+- **Root Cause**: Loki 2.8.2+ requires explicit `schema_config` in the storage config, even when using boltdb-shipper
+- **Solution**: Ensure `gitops/components/loki-local/loki-deployment.yaml` ConfigMap includes:
+  ```yaml
+  schema_config:
+    configs:
+      - from: 2020-10-24
+        store: boltdb
+        object_store: filesystem
+        schema: v11
+        index:
+          prefix: index_
+          period: 168h
+  ```
+- **Applied**: Switched `lgtm-loki` Application from Helm chart source to local manifests at `gitops/components/loki-local`
+
+**Temporal Database Backend Issue**
+
+If Temporal pod fails with `CASSANDRA_SEEDS env must be set if DB is cassandra`:
+- **Root Cause**: Temporal auto-setup image defaults to Docker Compose behavior (cassandra + elasticsearch), which won't auto-initialize in Kubernetes
+- **Solution**: Use in-cluster PostgreSQL backend instead:
+  - Deploy `temporal-postgres` Deployment (postgres:15-alpine with emptyDir storage for development)
+  - Set Temporal env: `DB=postgresql`, `POSTGRES_SEEDS=temporal-postgres`, `DB_PORT=5432`
+  - Ensure all env values are quoted strings (e.g., `value: "5432"`, not `value: 5432`) to avoid ArgoCD unmarshalling errors
+- **Applied**: Updated `gitops/temporal/temporal-deployment.yaml` with in-cluster Postgres and corrected env vars (commit: 4d37e43)
+
+**ArgoCD Deployment Env Value Type Mismatches**
+
+If ArgoCD Application shows error `cannot unmarshal number into Go struct field EnvVar.spec.template.spec.containers.env.value of type string`:
+- **Root Cause**: Kubernetes env values must always be strings in YAML, even for ports/numbers; ArgoCD fails when numeric literals (`5432`) are used instead of quoted strings (`"5432"`)
+- **Solution**: Quote all env values explicitly in Deployment manifests (e.g., `value: '5432'` or `value: "5432"`)
+- **ArgoCD Sync Option**: Add `syncOptions: ["Replace=true"]` to Application spec to allow clean Deployment recreation instead of failed patch-based updates
+
+**K3d Cluster Connectivity Loss**
+
+If kubectl commands fail with `connection refused on 127.0.0.1:XXXXX`:
+- **Root Cause**: K3d cluster nodes may stop unexpectedly (check with `k3d cluster ls`)
+- **Solution**: Restart cluster with `k3d cluster start lab` and verify connectivity with `kubectl cluster-info`
+
 Design decisions & tradeoffs
 - Use k3d for deterministic local k3s clusters and reproducible testing.
 - GitOps via ArgoCD — all workloads managed from `gitops/` (nothing applied manually after bootstrap).
