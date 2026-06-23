@@ -6,22 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://grafana.github.io/helm-charts
-    chart: loki
-    targetRevision: "*"
-    helm:
-      values: |
-        # For local k3d testing we disable persistence and the write component
-        # to avoid object-storage/bucket configuration required by boltdb-shipper
-        loki:
-          persistence:
-            enabled: false
-          write:
-            enabled: false
-          resources:
-            requests:
-              cpu: 200m
-              memory: 512Mi
+    repoURL: https://github.com/AyubMulla/normal-work
+    path: gitops/components/loki-local
+    targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
     namespace: lgtm
