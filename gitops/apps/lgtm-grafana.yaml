@@ -6,37 +6,6 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: "https://github.com/AyubMulla/normal-work"
-    path: gitops/components/grafana
-    targetRevision: HEAD
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: lgtm
-  syncPolicy:
-    automated: {}
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: lgtm-grafana
-  namespace: argocd
-spec:
-  project: default
-  source:
     repoURL: https://grafana.github.io/helm-charts
     chart: grafana
-    targetRevision: "*"
-    helm:
-      values: |
-        adminPassword: "grafana-admin"
-        persistence:
-          enabled: true
-          size: 10Gi
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: lgtm
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
+    targetRevision: " *
