@@ -36,11 +36,11 @@ spec:
           image: postgres:15-alpine
           env:
             - name: POSTGRES_USER
-              value: temporal
+              value: 'temporal'
             - name: POSTGRES_PASSWORD
-              value: temporalpw
+              value: 'temporalpw'
             - name: POSTGRES_DB
-              value: temporal
+              value: 'temporal'
           ports:
             - containerPort: 5432
           volumeMounts:
@@ -70,24 +70,24 @@ spec:
           image: temporalio/auto-setup:1.23.0
           env:
             - name: DB
-              value: postgresql
+              value: 'postgresql'
             - name: DB_PORT
-              value: 5432
+              value: '5432'
             - name: POSTGRES_USER
-              value: temporal
+              value: 'temporal'
             - name: POSTGRES_PWD
-              value: temporalpw
+              value: 'temporalpw'
             - name: POSTGRES_SEEDS
-              value: temporal-postgres
+              value: 'temporal-postgres'
           ports:
             - containerPort: 7233
           resources:
             requests:
-              cpu: 200m
-              memory: 256Mi
+              cpu: '200m'
+              memory: '256Mi'
             limits:
-              cpu: 1
-              memory: 1Gi
+              cpu: '1'
+              memory: '1Gi'
           livenessProbe:
             tcpSocket:
               port: 7233
