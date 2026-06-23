@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-by-default
+  namespace: sample-app
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: lgtm
+        - podSelector:
+            matchLabels:
+              app: sample-app
+      ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: lgtm
+      ports:
+        - protocol: TCP
+          port: 4318

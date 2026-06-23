@@ -10,12 +10,12 @@ spec:
   - Ingress
   ingress:
   - from:
-    - podSelector:
+    - namespaceSelector:
         matchLabels:
-          app: lgtm-grafana
-    - podSelector:
+          name: lgtm
+    - namespaceSelector:
         matchLabels:
-          app: loki-local
-    - podSelector:
-        matchLabels:
-          app: prometheus-local
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080

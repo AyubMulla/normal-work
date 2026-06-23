@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lgtm-grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lgtm-grafana
+  template:
+    metadata:
+      labels:
+        app: lgtm-grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:12.3.1
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 20
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lgtm-grafana
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+  selector:
+    app: lgtm-grafana
