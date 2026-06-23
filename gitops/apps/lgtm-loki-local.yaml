@@ -1,0 +1,115 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lgtm-loki-local
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: "https://github.com/AyubMulla/normal-work"
+    path: gitops/components/loki-local
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lgtm
+  syncPolicy:
+    automated: {}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lgtm
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-local-config
+  namespace: lgtm
+data:
+  loki-local.yaml: |
+    auth_enabled: false
+    server:
+      http_listen_port: 3100
+    distributor:
+      ring:
+        kvstore:
+          store: inmemory
+    ingester:
+      lifecycler:
+        address: 127.0.0.1
+        ring:
+          kvstore:
+            store: inmemory
+          replication_factor: 1
+      chunk_idle_period: 1h
+      chunk_target_size: 1048576
+    storage_config:
+      boltdb:
+        directory: /loki/index
+      filesystem:
+        directory: /loki/chunks
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: boltdb
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 168h
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki-local
+  namespace: lgtm
+  labels:
+    app: loki-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loki-local
+  template:
+    metadata:
+      labels:
+        app: loki-local
+    spec:
+      containers:
+        - name: loki
+          image: grafana/loki:2.8.2
+          args:
+            - -config.file=/etc/loki/loki-local.yaml
+          ports:
+            - containerPort: 3100
+          volumeMounts:
+            - name: loki-config
+              mountPath: /etc/loki
+            - name: loki-data
+              mountPath: /loki
+            - name: loki-data
+              mountPath: /wal
+      volumes:
+        - name: loki-config
+          configMap:
+            name: loki-local-config
+            items:
+              - key: loki-local.yaml
+                path: loki-local.yaml
+        - name: loki-data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-local
+  namespace: lgtm
+spec:
+  selector:
+    app: loki-local
+  ports:
+    - protocol: TCP
+      port: 3100
+      targetPort: 3100

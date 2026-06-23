@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-lgtm
+spec:
+  podSelector:
+    matchLabels:
+      app: sample-app
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: lgtm-grafana
+    - podSelector:
+        matchLabels:
+          app: loki-local
+    - podSelector:
+        matchLabels:
+          app: prometheus-local

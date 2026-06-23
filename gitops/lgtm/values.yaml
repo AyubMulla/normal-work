@@ -1,0 +1,47 @@
+# Placeholder Helm values for LGTM components (Loki, Grafana, Tempo, Prometheus/Mimir)
+# Tune these values for production-grade resources, persistence, and retention.
+
+loki:
+  persistence:
+    enabled: true
+    size: 50Gi
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 2Gi
+
+grafana:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+tempo:
+  persistence:
+    enabled: true
+    size: 50Gi
+  tracing:
+    receiver:
+      otlp:
+        protocols:
+          http: true
+          grpc: true
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1
+        memory: 2Gi
+
+# Example SLI: request success rate. Configure PrometheusRule in gitops/alerts.yaml

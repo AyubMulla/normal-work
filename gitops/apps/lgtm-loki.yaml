@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lgtm-loki
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki
+    targetRevision: "*"
+    helm:
+      values: |
+        # For local k3d testing we disable persistence and the write component
+        # to avoid object-storage/bucket configuration required by boltdb-shipper
+        loki:
+          persistence:
+            enabled: false
+          write:
+            enabled: false
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lgtm
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

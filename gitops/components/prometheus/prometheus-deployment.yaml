@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-local
+spec:
+  ports:
+  - port: 9090
+    targetPort: 9090
+  selector:
+    app: prometheus-local
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-local
+  template:
+    metadata:
+      labels:
+        app: prometheus-local
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.48.0
+        args:
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.tsdb.path=/prometheus
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: config
+          mountPath: /etc/prometheus
+        - name: data
+          mountPath: /prometheus
+      volumes:
+      - name: config
+        configMap:
+          name: prometheus-local-config
+      - name: data
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-local-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']

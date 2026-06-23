@@ -1,0 +1,24 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sample-app-slo-rules
+  namespace: sample-app
+  labels:
+    role: alert-rules
+spec:
+  groups:
+    - name: sample-app-slo
+      rules:
+        - record: job:http_error_rate:5m
+          expr: |
+            sum(rate(http_requests_total{job="sample-app",code!~"2.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="sample-app"}[5m]))
+        - alert: SampleAppHighErrorRate
+          expr: job:http_error_rate:5m > 0.05
+          for: 2m
+          labels:
+            severity: page
+          annotations:
+            summary: "High error rate detected for sample-app"
+            description: "Error rate is > 5% over 5m. Investigate sample-app pods, logs, and traces."
