@@ -64,3 +64,12 @@ data:
         cache_location: /loki/cache
       filesystem:
         directory: /loki/chunks
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: boltdb
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 168h
