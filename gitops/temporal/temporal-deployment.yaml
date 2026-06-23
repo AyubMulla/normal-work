@@ -21,20 +21,33 @@ spec:
       containers:
         - name: temporal
           image: temporalio/auto-setup:1.23.0
+          env:
+            - name: DB
+              value: sqlite
+            - name: SQLITE_MODE
+              value: file
+            - name: SQLITE_DIR
+              value: /var/lib/temporal/sqlite
           ports:
             - containerPort: 7233
+          volumeMounts:
+            - name: sqlite-data
+              mountPath: /var/lib/temporal/sqlite
           resources:
             requests:
-              cpu: "200m"
-              memory: "256Mi"
+              cpu: 200m
+              memory: 256Mi
             limits:
-              cpu: "1"
-              memory: "1Gi"
+              cpu: 1
+              memory: 1Gi
           livenessProbe:
             tcpSocket:
               port: 7233
             initialDelaySeconds: 20
             periodSeconds: 30
+      volumes:
+        - name: sqlite-data
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
