@@ -22,17 +22,10 @@ spec:
         - name: temporal
           image: temporalio/auto-setup:1.23.0
           env:
-            - name: DB
-              value: sqlite
-            - name: SQLITE_MODE
-              value: file
-            - name: SQLITE_DIR
-              value: /var/lib/temporal/sqlite
+            - name: CASSANDRA_SEEDS
+              value: localhost
           ports:
             - containerPort: 7233
-          volumeMounts:
-            - name: sqlite-data
-              mountPath: /var/lib/temporal/sqlite
           resources:
             requests:
               cpu: 200m
@@ -45,9 +38,6 @@ spec:
               port: 7233
             initialDelaySeconds: 20
             periodSeconds: 30
-      volumes:
-        - name: sqlite-data
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
