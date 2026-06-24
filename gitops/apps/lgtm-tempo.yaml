@@ -18,6 +18,22 @@ spec:
               local:
                 path: /var/tempo/traces
 
+          metrics_generator:
+            ring:
+              kvstore:
+                store: memberlist
+            processor:
+              service_graphs: {}
+              span_metrics: {}
+            storage:
+              path: /var/tempo/generator/wal
+              remote_write: []
+
+          overrides:
+            defaults:
+              metrics_generator:
+                processors: [service-graphs, span-metrics]
+
         persistence:
           enabled: true
           size: 10Gi
@@ -27,15 +43,6 @@ spec:
             protocols:
               http: true
               grpc: true
-
-        metricsGenerator:
-          enabled: true
-          config:
-            processor:
-              service_graphs:
-                dimensions: []
-              span_metrics:
-                dimensions: []
   destination:
     server: https://kubernetes.default.svc
     namespace: lgtm
