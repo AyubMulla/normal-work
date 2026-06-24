@@ -20,15 +20,16 @@ spec:
       labels:
         app: sample-app
     spec:
+      serviceAccountName: sample-app-sa
       containers:
         - name: sample-app
           image: k3d-lab-registry:5000/sample-app:latest # push to local registry
-          command:
-            - sh
-            - -c
-            - sed -i 's/notlp_endpoint/otlp_endpoint/g' /app/app.py && exec python app.py
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
           resources:
             requests:
               cpu: "100m"
@@ -64,7 +65,8 @@ spec:
   selector:
     app: sample-app
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 80
       targetPort: 8080
   type: ClusterIP

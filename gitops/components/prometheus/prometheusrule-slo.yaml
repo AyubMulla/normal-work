@@ -2,6 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: sample-app-slo
+  namespace: sample-app
   labels:
     role: alert-rules
 spec:
@@ -10,12 +11,12 @@ spec:
     rules:
     - record: job:error_rate:5m
       expr: |
-        sum(rate(http_requests_total{job="sample-app",status=~"5.."}[5m]))
+        sum(rate(http_requests_total{job="sample-app",code!~"2.."}[5m]))
         /
         sum(rate(http_requests_total{job="sample-app"}[5m]))
 
-    - alert: SampleAppHighErrorRate
-      expr: job:error_rate:5m > 0.01
+    - alert: SampleAppHighErrorRateFromComponent
+      expr: job:error_rate:5m > 0.05
       for: 2m
       labels:
         severity: page

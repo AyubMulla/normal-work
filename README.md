@@ -1,172 +1,164 @@
-# Production-Grade Local Platform (staff-sre)
+# Staff SRE Assessment Platform (k3s + GitOps + LGTM + Temporal + AI RCA)
 
-This repository contains a production‑grade local platform scaffold (k3s/k3d, ArgoCD GitOps, LGTM observability, Temporal, sample app, and an AI SRE agent).
+Production-leaning local platform implementation using `k3d/k3s` with full GitOps reconciliation through ArgoCD.
 
-Purpose
-- Prove out a production-like platform locally before touching cloud.
-- Provide GitOps-managed workloads via ArgoCD.
+## Architecture Overview
 
-Quick start (developer flow — WSL recommended)
-1. Ensure WSL2 Ubuntu, Docker, and k3d are installed and working.
-2. Create k3d cluster (example):
-   - `k3d cluster create lab --api-port 6550 -p "127.0.0.1:5000:5000@loadbalancer"`
-3. Export kubeconfig in WSL: `export KUBECONFIG=/home/$USER/.kube/config-lab`
-4. Build sample app image and push to local registry (see `infra/build-and-push.sh`).
-5. Bootstrap ArgoCD with `infra/bootstrap-argocd.sh -r <git-repo>` and let ArgoCD sync `gitops/`.
+- **Cluster**: k3d (k3s) local cluster
+- **GitOps**: ArgoCD app-of-app (`platform-root`) reconciles all workloads from this repo
+- **Observability (LGTM)**:
+  - Grafana (Helm chart)
+  - Loki (local manifest component)
+  - Tempo (Helm chart)
+  - Prometheus (local manifest component)
+  - Promtail (Helm chart)
+- **Workflow Orchestration**: Temporal server + Temporal UI + Postgres backend
+- **Operational Workflow**: Temporal worker + periodic CronJob trigger (`OpsHeartbeatWorkflow`)
+- **Sample API**: Flask app exporting logs, metrics, traces
+- **AI SRE agent**: Queries Prometheus/Loki and writes structured RCA markdown
 
-What I will commit in this branch
-- `infra/bootstrap-k3s.sh` — idempotent cluster bootstrap skeleton
-- `infra/bootstrap-argocd.sh` — ArgoCD bootstrap (existing; I'll iterate)
-- `gitops/` — Application-of-Applications to manage LGTM & Temporal (existing)
+## Repo Layout
 
-Next steps (short term)
-- Harden manifests with RBAC, resource requests/limits, NetworkPolicies, and Secrets management (sealed-secrets or external secret store).
-- Replace Helm charts with pinned chart versions and reproducible values files.
+- `infra/` bootstrap, build, and helper scripts
+- `gitops/apps/` ArgoCD `Application` manifests and shared cluster-level manifests
+- `gitops/components/` local components (Prometheus, Loki, etc.)
+- `gitops/temporal/` Temporal server, DB, UI, and operational workflow resources
+- `sample-app/` API source + Kubernetes manifests
+- `ai-agent/` failure simulation and RCA agent
+- `ai-log/ai_interactions.md` AI interaction history used during development
 
-Branch: `staff-sre/initial-bootstraps`
-Engineering Assessment — Production-grade k3s GitOps platform (local)
+## Bootstrap From Scratch
 
-Overview
-
-This repository is a scaffold for a production-grade platform running on a local k3s cluster (via k3d). It demonstrates a full GitOps-driven stack managed by ArgoCD and a LGTM observability stack (Loki, Grafana, Tempo, Prometheus/Mimir), Temporal, a sample API that emits metrics/logs/traces, and an AI SRE agent that queries observability to produce an RCA.
-
-Goal
-
-Build a platform you'd be comfortable running in production, only difference: k3s (k3d) instead of EKS.
-
-What's included
-- k3d-based k3s bootstrap scripts
-- ArgoCD bootstrap + GitOps repo layout (app-of-app)
-- LGTM observability values and manifests (Helm values placeholders)
-- Prometheus/Mimir integration with an example SLI/SLO and alert rule
-- Temporal deployment + sample workflow
-- Sample Flask API emitting structured logs, Prometheus metrics, and OpenTelemetry traces
-- AI SRE agent (Python) that queries Loki/Prometheus/Tempo and produces structured RCA markdown
-
-Prerequisites
-- Docker Desktop (or Docker) on Windows
-- PowerShell 7+ (for provided scripts) or WSL/Linux
-- kubectl
-- k3d (scripts can install if missing)
-- argocd CLI (optional but helpful)
-
-Quick bootstrap (high level)
-
-1. Clone repo
-2. If you prefer WSL (recommended for Linux-like environment), run the WSL scripts from inside your WSL2 distro:
+### 1) Create cluster (WSL)
 
 ```bash
-# inside WSL2 shell
 ./infra/bootstrap-wsl.sh
+export KUBECONFIG=/home/$USER/.kube/config-lab
+```
+
+### 2) Build and push sample-app image
+
+```bash
 ./infra/build-and-push.sh k3d-lab-registry:5000 sample-app latest
-./infra/bootstrap-argocd.sh -r 'https://github.com/your-org/your-repo'
 ```
 
-Or on Windows PowerShell (non-WSL):
+### 3) Bootstrap ArgoCD and GitOps root app
 
-```powershell
-infra\bootstrap-k3d.ps1 -ClusterName lab -RegistryName lab-registry
-infra\build-and-push.ps1 -Registry k3d-lab-registry:5000 -Image sample-app -Tag latest
-infra\bootstrap-argocd.ps1 -RepoURL 'https://github.com/your-org/your-repo'
+```bash
+./infra/bootstrap-argocd.sh -r 'https://github.com/AyubMulla/normal-work'
 ```
 
-3. Wait for workloads to reconcile (LGTM, Temporal, sample-app)
+### 4) Verify reconciliation
 
-Full bootstrap commands (example):
-
-```powershell
-# 1. Create k3d cluster (requires k3d installed)
-infra\bootstrap-k3d.ps1 -ClusterName lab -RegistryName lab-registry
-
-# 2. Build and push sample app image to local registry (Docker required)
-infra\build-and-push.ps1 -Registry k3d-lab-registry:5000 -Image sample-app -Tag latest
-
-# 3. Install ArgoCD and create platform root app (point RepoURL to your git remote URL)
-infra\bootstrap-argocd.ps1 -RepoURL 'https://github.com/your-org/your-repo'
-
-# 4. Port-forward ArgoCD UI locally to login and observe sync
-
+```bash
+kubectl -n argocd get app -o wide
 ```
 
-## Troubleshooting & Reconciliation
+Expected final app set:
+- `platform-root`
+- `lgtm-grafana`
+- `lgtm-loki`
+- `lgtm-prometheus`
+- `lgtm-promtail`
+- `lgtm-tempo`
+- `lgtm-temporal`
+- `sample-app`
 
-**Loki Configuration Issue (schema_config)**
+All should converge to `Synced` + `Healthy`.
 
-If Loki pod fails with error `Please define loki.storage.bucketNames.chunks`:
-- **Root Cause**: Loki 2.8.2+ requires explicit `schema_config` in the storage config, even when using boltdb-shipper
-- **Solution**: Ensure `gitops/components/loki-local/loki-deployment.yaml` ConfigMap includes:
-  ```yaml
-  schema_config:
-    configs:
-      - from: 2020-10-24
-        store: boltdb
-        object_store: filesystem
-        schema: v11
-        index:
-          prefix: index_
-          period: 168h
-  ```
-- **Applied**: Switched `lgtm-loki` Application from Helm chart source to local manifests at `gitops/components/loki-local`
+## Access
 
-**Temporal Database Backend Issue**
+Use port-forwards as needed:
 
-If Temporal pod fails with `CASSANDRA_SEEDS env must be set if DB is cassandra`:
-- **Root Cause**: Temporal auto-setup image defaults to Docker Compose behavior (cassandra + elasticsearch), which won't auto-initialize in Kubernetes
-- **Solution**: Use in-cluster PostgreSQL backend instead:
-  - Deploy `temporal-postgres` Deployment (postgres:15-alpine with emptyDir storage for development)
-  - Set Temporal env: `DB=postgresql`, `POSTGRES_SEEDS=temporal-postgres`, `DB_PORT=5432`
-  - Ensure all env values are quoted strings (e.g., `value: "5432"`, not `value: 5432`) to avoid ArgoCD unmarshalling errors
-- **Applied**: Updated `gitops/temporal/temporal-deployment.yaml` with in-cluster Postgres and corrected env vars (commit: 4d37e43)
-
-**ArgoCD Deployment Env Value Type Mismatches**
-
-If ArgoCD Application shows error `cannot unmarshal number into Go struct field EnvVar.spec.template.spec.containers.env.value of type string`:
-- **Root Cause**: Kubernetes env values must always be strings in YAML, even for ports/numbers; ArgoCD fails when numeric literals (`5432`) are used instead of quoted strings (`"5432"`)
-- **Solution**: Quote all env values explicitly in Deployment manifests (e.g., `value: '5432'` or `value: "5432"`)
-- **ArgoCD Sync Option**: Add `syncOptions: ["Replace=true"]` to Application spec to allow clean Deployment recreation instead of failed patch-based updates
-
-**K3d Cluster Connectivity Loss**
-
-If kubectl commands fail with `connection refused on 127.0.0.1:XXXXX`:
-- **Root Cause**: K3d cluster nodes may stop unexpectedly (check with `k3d cluster ls`)
-- **Solution**: Restart cluster with `k3d cluster start lab` and verify connectivity with `kubectl cluster-info`
-
-Design decisions & tradeoffs
-- Use k3d for deterministic local k3s clusters and reproducible testing.
-- GitOps via ArgoCD — all workloads managed from `gitops/` (nothing applied manually after bootstrap).
-- Observe strict namespace separation, resource requests/limits, liveness/readiness, and network policies across manifests.
-- Use Helm for production-grade charts (values under `lgtm/`), but include concrete manifests for sample app and Temporal for clarity.
-- Secrets: recommend SealedSecrets or external Vault in production — placeholder notes provided.
-
-Files of interest
-- infra/bootstrap-k3d.ps1 — create k3d cluster and load local registry
-- infra/bootstrap-argocd.ps1 — install ArgoCD and bootstrap initial app-of-app
-- gitops/ — ArgoCD-managed applications and values
-- sample-app/ — Flask sample app, k8s manifests, Dockerfile
-- ai-agent/ — Python AI SRE agent and usage
-
-Next steps / Roadmap
-- Complete Helm value tuning for Prometheus/Mimir and Tempo
-- Add SealedSecrets + Vault integration for secret rotation
-- Add real SLO dashboards and SLO operator integration
-- Add CI to build images and push to local registry
-
-AI Interaction Log
-- A complete AI interaction log (transcripts used during development) will be added to `ai-log/` as `ai_interactions.md`.
- 
-Simulated failure and RCA
-
-```powershell
-# delete a sample-app pod to simulate outage
-infra\simulate-failure.ps1 -Namespace sample-app
-
-# run the AI SRE agent locally (ensure Prometheus and Loki endpoints are reachable from where you run the agent)
-python -m pip install -r ai-agent/requirements.txt
-python ai-agent/agent.py
+```bash
+kubectl -n lgtm port-forward svc/lgtm-grafana 3000:80
+kubectl -n argocd port-forward svc/argocd-server 8083:443
+kubectl -n temporal port-forward svc/temporal-web 8090:8088
+kubectl -n sample-app port-forward svc/sample-app 8084:80
+kubectl -n lgtm port-forward svc/prometheus-local 9091:9090
+kubectl -n lgtm port-forward svc/loki-local 3101:3100
+kubectl -n lgtm port-forward svc/lgtm-tempo 3201:3200
 ```
 
-License
-- MIT (please add if needed)
+## What Is Production-Oriented Here
 
-Contact
-- If you want me to fully implement Helm values and run the bootstrap locally on my machine, tell me to proceed and I'll continue.
+- Namespace isolation for major domains
+- GitOps-only reconciliation after bootstrap
+- Resource requests/limits on core workloads
+- Liveness/readiness probes for app and platform components
+- NetworkPolicy for sample app namespace
+- Dedicated ServiceAccount + RBAC manifest for sample app
+- SLI/SLO recording + alert rule (`PrometheusRule` manifests)
+- Temporal operational workflow running on schedule
+
+## Temporal Operational Workflow
+
+Resources are in `gitops/temporal/temporal-workflow.yaml`:
+- `temporal-ops-worker` Deployment
+- `temporal-ops-heartbeat-trigger` CronJob
+- `OpsHeartbeatWorkflow` workflow definition
+
+Quick verification:
+
+```bash
+kubectl -n temporal get deploy temporal-ops-worker
+kubectl -n temporal get cronjob temporal-ops-heartbeat-trigger
+kubectl -n temporal get jobs --sort-by=.metadata.creationTimestamp | tail
+```
+
+## SLI/SLO + Alerting
+
+Primary alert rule:
+- `gitops/apps/alerts-prometheusrule.yaml`
+
+Prometheus scrape:
+- `gitops/components/prometheus/prometheus-deployment.yaml`
+
+Sample metric query:
+
+```promql
+http_requests_total{job="sample-app"}
+```
+
+Error-rate SLI:
+
+```promql
+sum(rate(http_requests_total{job="sample-app",code!~"2.."}[5m]))
+/
+sum(rate(http_requests_total{job="sample-app"}[5m]))
+```
+
+## AI SRE Agent + Failure Simulation
+
+Simulate failure and produce RCA:
+
+```bash
+cd ai-agent
+./simulate_failure.sh sample-app
+python3 agent.py
+cat rca_report.md
+```
+
+Agent code:
+- `ai-agent/agent.py`
+
+## Security Notes
+
+- Grafana and Temporal DB credentials are now referenced via Kubernetes `Secret` objects in manifests.
+- For real production, replace in-repo secret values with SealedSecrets/ExternalSecrets + KMS/Vault.
+- Current defaults are intentionally local-dev friendly and must be rotated for shared environments.
+
+## Design Decisions and Trade-offs
+
+- **k3d/k3s** chosen for fast local iteration while keeping Kubernetes behavior realistic.
+- **GitOps app-of-app** used to model production reconciliation patterns.
+- **Mixed local manifests + Helm apps** used for speed and deterministic control where needed.
+- **Temporal worker container installs Python deps at runtime** to reduce image build complexity locally; production should use a prebuilt immutable worker image.
+
+## Roadmap (Next Improvements)
+
+1. Replace in-repo secrets with SealedSecrets or External Secrets Operator.
+2. Add CI pipeline for image build/push + policy checks (`kubeconform`, `conftest`).
+3. Add prebuilt Temporal worker image and workflow integration tests.
+4. Add Mimir long-term metrics storage and dashboard-as-code provisioning.
+5. Add runbook links and alert routing to PagerDuty/Slack.

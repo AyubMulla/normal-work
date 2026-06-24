@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: temporal-workflow-scripts
+  namespace: temporal
+data:
+  workflows.py: |
+    from datetime import timedelta
+    from temporalio import workflow
+
+    @workflow.defn
+    class OpsHeartbeatWorkflow:
+        @workflow.run
+        async def run(self, source: str = "cron") -> dict:
+            await workflow.sleep(timedelta(seconds=2))
+            return {
+                "workflow": "OpsHeartbeatWorkflow",
+                "source": source,
+                "status": "ok",
+            }
+  worker.py: |
+    import asyncio
+    from temporalio.client import Client
+    from temporalio.worker import Worker
+    from workflows import OpsHeartbeatWorkflow
+
+    async def main() -> None:
+        client = await Client.connect("temporal:7233", namespace="default")
+        worker = Worker(
+            client,
+            task_queue="ops-task-queue",
+            workflows=[OpsHeartbeatWorkflow],
+        )
+        await worker.run()
+
+    if __name__ == "__main__":
+        asyncio.run(main())
+  starter.py: |
+    import asyncio
+    from datetime import timedelta
+    import uuid
+    from temporalio.client import Client
+    from workflows import OpsHeartbeatWorkflow
+
+    async def main() -> None:
+        client = await Client.connect("temporal:7233", namespace="default")
+        workflow_id = f"ops-heartbeat-{uuid.uuid4()}"
+        handle = await client.start_workflow(
+            OpsHeartbeatWorkflow.run,
+            "cron",
+            id=workflow_id,
+            task_queue="ops-task-queue",
+            execution_timeout=timedelta(minutes=5),
+        )
+        print(f"Started workflow: {handle.id}")
+
+    if __name__ == "__main__":
+        asyncio.run(main())
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-ops-worker
+  namespace: temporal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-ops-worker
+  template:
+    metadata:
+      labels:
+        app: temporal-ops-worker
+    spec:
+      containers:
+        - name: worker
+          image: python:3.11-slim
+          command:
+            - sh
+            - -c
+            - pip install --no-cache-dir temporalio && python /app/worker.py
+          volumeMounts:
+            - name: scripts
+              mountPath: /app
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: scripts
+          configMap:
+            name: temporal-workflow-scripts
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: temporal-ops-heartbeat-trigger
+  namespace: temporal
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: starter
+              image: python:3.11-slim
+              command:
+                - sh
+                - -c
+                - pip install --no-cache-dir temporalio && python /app/starter.py
+              volumeMounts:
+                - name: scripts
+                  mountPath: /app
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "300m"
+                  memory: "256Mi"
+          volumes:
+            - name: scripts
+              configMap:
+                name: temporal-workflow-scripts
