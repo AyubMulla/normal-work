@@ -21,6 +21,8 @@ spec:
           port: 8080
   egress:
     - to:
+        - ipBlock:
+            cidr: 10.43.0.10/32
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
