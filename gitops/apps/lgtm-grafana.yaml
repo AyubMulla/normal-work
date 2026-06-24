@@ -15,16 +15,6 @@ spec:
           existingSecret: grafana-admin-credentials
           userKey: admin-user
           passwordKey: admin-password
-        extraObjects:
-          - apiVersion: v1
-            kind: Secret
-            metadata:
-              name: grafana-admin-credentials
-              namespace: lgtm
-            type: Opaque
-            stringData:
-              admin-user: admin
-              admin-password: "change-me-before-prod"
         deploymentStrategy:
           type: Recreate
         initChownData:

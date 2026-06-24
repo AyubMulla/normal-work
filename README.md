@@ -45,8 +45,12 @@ export KUBECONFIG=/home/$USER/.kube/config-lab
 ### 3) Bootstrap ArgoCD and GitOps root app
 
 ```bash
+export GRAFANA_ADMIN_PASSWORD='replace-with-strong-password'
+export TEMPORAL_DB_PASSWORD='replace-with-strong-password'
 ./infra/bootstrap-argocd.sh -r 'https://github.com/AyubMulla/normal-work'
 ```
+
+If those environment variables are omitted, the script generates strong random values for the run.
 
 ### 4) Verify reconciliation
 
@@ -144,9 +148,9 @@ Agent code:
 
 ## Security Notes
 
-- Grafana and Temporal DB credentials are now referenced via Kubernetes `Secret` objects in manifests.
-- For real production, replace in-repo secret values with SealedSecrets/ExternalSecrets + KMS/Vault.
-- Current defaults are intentionally local-dev friendly and must be rotated for shared environments.
+- Grafana and Temporal DB credentials are referenced by workloads but provisioned at bootstrap time, not stored as plaintext in Git.
+- `infra/bootstrap-argocd.sh` creates required Kubernetes secrets from environment variables (or generated random values).
+- For cloud production, replace bootstrap-created secrets with SealedSecrets/ExternalSecrets + KMS/Vault-backed rotation.
 
 ## Design Decisions and Trade-offs
 

@@ -28,6 +28,29 @@ kubectl -n argocd wait --for=condition=Available deployment/argocd-server --time
 
 # Ensure destination namespace exists so ArgoCD can create resources into it
 kubectl create namespace platform-system || true
+kubectl create namespace lgtm || true
+kubectl create namespace temporal || true
+
+if [ -z "${GRAFANA_ADMIN_PASSWORD:-}" ]; then
+  GRAFANA_ADMIN_PASSWORD=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+  echo "Generated GRAFANA_ADMIN_PASSWORD for this bootstrap run."
+fi
+
+if [ -z "${TEMPORAL_DB_PASSWORD:-}" ]; then
+  TEMPORAL_DB_PASSWORD=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+  echo "Generated TEMPORAL_DB_PASSWORD for this bootstrap run."
+fi
+
+kubectl -n lgtm create secret generic grafana-admin-credentials \
+  --from-literal=admin-user=admin \
+  --from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl -n temporal create secret generic temporal-db-credentials \
+  --from-literal=username=temporal \
+  --from-literal=password="${TEMPORAL_DB_PASSWORD}" \
+  --from-literal=database=temporal \
+  --dry-run=client -o yaml | kubectl apply -f -
 
 echo "Creating platform-root Application pointing to $REPO/$PATH_IN_REPO"
 cat <<EOF | kubectl apply -f -

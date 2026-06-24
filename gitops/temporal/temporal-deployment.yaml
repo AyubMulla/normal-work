@@ -4,17 +4,6 @@ metadata:
   name: temporal
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: temporal-db-credentials
-  namespace: temporal
-type: Opaque
-stringData:
-  username: temporal
-  password: temporalpw
-  database: temporal
----
-apiVersion: v1
 kind: Service
 metadata:
   name: temporal-postgres
