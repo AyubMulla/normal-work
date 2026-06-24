@@ -12,7 +12,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              name: lgtm
+              kubernetes.io/metadata.name: lgtm
         - podSelector:
             matchLabels:
               app: sample-app
@@ -23,7 +23,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: lgtm
+              kubernetes.io/metadata.name: lgtm
       ports:
         - protocol: TCP
           port: 4318
