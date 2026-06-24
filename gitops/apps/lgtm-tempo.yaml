@@ -17,6 +17,23 @@ spec:
               backend: local
               local:
                 path: /var/tempo/traces
+              blocklist_poll: 5m
+          
+          search_enabled: true
+          
+          querier:
+            max_concurrent_queries: 20
+            search:
+              prefer_self: true
+          
+          query_frontend:
+            search:
+              metrics:
+                results_cache:
+                  cache:
+                    memcached_client:
+                      addresses:
+                      - localhost
 
           metrics_generator:
             ring:
