@@ -6,13 +6,15 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/AyubMulla/normal-work
+    repoURL: "https://github.com/AyubMulla/normal-work"
     path: gitops/temporal
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
     namespace: temporal
   syncPolicy:
-    automated: {}
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
-      - Replace=true
+      - CreateNamespace=true

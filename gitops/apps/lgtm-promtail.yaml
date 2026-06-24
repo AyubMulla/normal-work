@@ -1,24 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: lgtm-tempo
+  name: lgtm-promtail
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://grafana.github.io/helm-charts
-    chart: tempo
-    targetRevision: "1.24.4"
+    chart: promtail
+    targetRevision: "6.17.1"
     helm:
       values: |
-        persistence:
-          enabled: true
-          size: 10Gi
-        receiver:
-          otlp:
-            protocols:
-              http: true
-              grpc: true
+        config:
+          clients:
+            - url: http://loki-local.lgtm.svc.cluster.local:3100/loki/api/v1/push
   destination:
     server: https://kubernetes.default.svc
     namespace: lgtm

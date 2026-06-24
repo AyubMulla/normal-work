@@ -8,4 +8,39 @@ spec:
   source:
     repoURL: https://grafana.github.io/helm-charts
     chart: grafana
-    targetRevision: " *
+    targetRevision: "10.5.15"
+    helm:
+      values: |
+        adminPassword: "grafana-admin"
+        persistence:
+          enabled: true
+          size: 10Gi
+        datasources:
+          datasources.yaml:
+            apiVersion: 1
+            datasources:
+              - name: Prometheus
+                type: prometheus
+                access: proxy
+                url: http://prometheus-local:9090
+                isDefault: true
+                editable: true
+              - name: Loki
+                type: loki
+                access: proxy
+                url: http://loki-local:3100
+                editable: true
+              - name: Tempo
+                type: tempo
+                access: proxy
+                url: http://lgtm-tempo:3200
+                editable: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lgtm
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

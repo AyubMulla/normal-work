@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/AyubMulla/normal-work
+    repoURL: "https://github.com/AyubMulla/normal-work"
     path: gitops/components/loki-local
     targetRevision: HEAD
   destination:
