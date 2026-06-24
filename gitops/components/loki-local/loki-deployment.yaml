@@ -34,12 +34,16 @@ spec:
         volumeMounts:
         - name: config
           mountPath: /etc/loki
+        - name: data
+          mountPath: /loki
         - name: wal
           mountPath: /wal
       volumes:
       - name: config
         configMap:
           name: loki-local-config
+      - name: data
+        emptyDir: {}
       - name: wal
         emptyDir: {}
 
@@ -53,6 +57,12 @@ data:
     auth_enabled: false
     server:
       http_listen_port: 3100
+    common:
+      path_prefix: /loki
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: inmemory
     ingester:
       wal:
         enabled: true
@@ -67,7 +77,7 @@ data:
     schema_config:
       configs:
         - from: 2020-10-24
-          store: boltdb
+          store: boltdb-shipper
           object_store: filesystem
           schema: v11
           index:
