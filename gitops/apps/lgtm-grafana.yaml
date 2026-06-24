@@ -25,6 +25,10 @@ spec:
             stringData:
               admin-user: admin
               admin-password: "change-me-before-prod"
+        deploymentStrategy:
+          type: Recreate
+        initChownData:
+          enabled: false
         persistence:
           enabled: true
           size: 10Gi
