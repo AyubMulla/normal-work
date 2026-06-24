@@ -23,8 +23,8 @@ spec:
       serviceAccountName: sample-app-sa
       containers:
         - name: sample-app
-          image: k3d-lab-registry:5000/sample-app:latest # push to local registry
-          imagePullPolicy: Always
+          image: k3d-lab-registry:5000/sample-app:fix-otlp # local immutable tag for reliable rollout
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           securityContext:

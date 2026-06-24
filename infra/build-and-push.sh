@@ -45,6 +45,20 @@ fi
 $DOCKER_CMD build -t "$FULL" -f "$REPO_ROOT/sample-app/Dockerfile" "$REPO_ROOT/sample-app"
 
 echo "Pushing $FULL"
-$DOCKER_CMD push "$FULL"
+if ! $DOCKER_CMD push "$FULL"; then
+	echo "Push failed. Attempting k3d image import fallback for local clusters..."
+	if command -v k3d >/dev/null 2>&1; then
+		LOCAL_TAG="$IMAGE:$TAG"
+		$DOCKER_CMD tag "$FULL" "$LOCAL_TAG"
+		if ! k3d image import "$LOCAL_TAG" -c lab; then
+			echo "Retrying k3d image import with sudo..."
+			sudo k3d image import "$LOCAL_TAG" -c lab
+		fi
+		echo "Imported $LOCAL_TAG into k3d cluster 'lab' as fallback."
+	else
+		echo "k3d not found for fallback image import." >&2
+		exit 1
+	fi
+fi
 
 echo "Image pushed: $FULL"
