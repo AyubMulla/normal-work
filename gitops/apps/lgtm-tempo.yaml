@@ -23,6 +23,9 @@ spec:
             processor:
               service_graphs: {}
               span_metrics: {}
+              local_blocks:
+                filter_server_spans: false
+                max_live_traces: 50000
             storage:
               path: /var/tempo/generator/wal
               remote_write:
@@ -36,6 +39,7 @@ spec:
                 processors:
                   - service-graphs
                   - span-metrics
+                  - local-blocks
 
         persistence:
           enabled: true
