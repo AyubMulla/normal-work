@@ -25,7 +25,8 @@ spec:
               span_metrics: {}
             storage:
               path: /var/tempo/generator/wal
-              remote_write: []
+              remote_write:
+                - url: http://prometheus-local.lgtm.svc.cluster.local:9090/api/v1/write
             traces_storage:
               path: /var/tempo/generator/traces
 
