@@ -122,6 +122,44 @@ chmod +x infra/port-forward.sh
 ./infra/port-forward.sh stop     # stop all managed PF processes
 ```
 
+### Local testing troubleshooting (WSL)
+
+If you started some `kubectl port-forward` commands manually in other terminals, they may not be tracked by the script PID file.
+
+Check active port-forward processes:
+
+```bash
+ps -ef | grep -E '[k]ubectl.*port-forward'
+```
+
+Check if expected local ports are listening:
+
+```bash
+for p in 3000 8083 8090 8084 9091 3101 3201; do
+   ss -ltn "( sport = :$p )" | grep -q LISTEN && echo "$p: running" || echo "$p: not running"
+done
+```
+
+Kill all kubectl port-forward processes:
+
+```bash
+pkill -f "kubectl.*port-forward"
+```
+
+If `pkill` misses any process:
+
+```bash
+ps -ef | grep "kubectl.*port-forward" | grep -v grep | awk '{print $2}' | xargs -r kill -9
+```
+
+Then run the script again:
+
+```bash
+./infra/port-forward.sh stop
+./infra/port-forward.sh start
+./infra/port-forward.sh status
+```
+
 PowerShell quick check:
 
 ```powershell
