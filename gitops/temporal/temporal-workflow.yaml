@@ -25,7 +25,7 @@ data:
     from workflows import OpsHeartbeatWorkflow
 
     async def main() -> None:
-      client = await Client.connect("temporal:7233", namespace="default")
+        client = await Client.connect("temporal:7233", namespace="default")
         worker = Worker(
             client,
             task_queue="ops-task-queue",
@@ -43,7 +43,7 @@ data:
     from workflows import OpsHeartbeatWorkflow
 
     async def main() -> None:
-      client = await Client.connect("temporal:7233", namespace="default")
+        client = await Client.connect("temporal:7233", namespace="default")
         workflow_id = f"ops-heartbeat-{uuid.uuid4()}"
         handle = await client.start_workflow(
             OpsHeartbeatWorkflow.run,
