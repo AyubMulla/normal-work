@@ -69,18 +69,36 @@ start_all() {
 
 # ── stop ──────────────────────────────────────────────────────
 stop_all() {
-  if [[ ! -f "$PF_PIDFILE" ]]; then
-    log "No PID file found. Nothing to stop."
-    return
+  local stopped_any=false
+
+  if [[ -f "$PF_PIDFILE" ]]; then
+    log "Stopping tracked port-forwards..."
+    while IFS= read -r pid; do
+      if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" && log "  killed pid $pid" || err "  failed to kill $pid"
+        stopped_any=true
+      fi
+    done < "$PF_PIDFILE"
+    rm -f "$PF_PIDFILE"
   fi
-  log "Stopping port-forwards..."
-  while IFS= read -r pid; do
-    if kill -0 "$pid" 2>/dev/null; then
-      kill "$pid" && log "  killed pid $pid" || err "  failed to kill $pid"
-    fi
-  done < "$PF_PIDFILE"
-  rm -f "$PF_PIDFILE"
-  log "Done."
+
+  log "Scanning for orphan kubectl port-forward processes..."
+  for entry in "${FORWARDS[@]}"; do
+    IFS='|' read -r ns svc lport rport name <<< "$entry"
+    mapfile -t pids < <(pgrep -f "kubectl.*port-forward.*svc/${svc}.*${lport}:${rport}" || true)
+    for pid in "${pids[@]:-}"; do
+      if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" && log "  killed orphan pid $pid (${name})" || err "  failed to kill orphan $pid (${name})"
+        stopped_any=true
+      fi
+    done
+  done
+
+  if [[ "$stopped_any" == false ]]; then
+    log "No tracked or orphan port-forwards found."
+  else
+    log "Done."
+  fi
 }
 
 # ── status ────────────────────────────────────────────────────
