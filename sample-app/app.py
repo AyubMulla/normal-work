@@ -31,7 +31,7 @@ REQUEST_LATENCY = Histogram('http_request_latency_seconds', 'Request latency', [
 # Tracing
 resource = Resource(attributes={"service.name": "sample-app"})
 provider = TracerProvider(resource=resource)
-otlp_endpoint = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'lgtm-tempo.lgtm.svc.cluster.local:4317')
+otlp_endpoint = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://lgtm-tempo.lgtm.svc.cluster.local:4317')
 span_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
 provider.add_span_processor(BatchSpanProcessor(span_exporter))
 trace.set_tracer_provider(provider)
