@@ -17,25 +17,74 @@ spec:
               backend: local
               local:
                 path: /var/tempo/traces
-              blocklist_poll: 5m
-          
           search_enabled: true
           
-          querier:
-            max_concurrent_queries: 20
-            search:
-              prefer_self: true
-          
-          query_frontend:
-            search:
-              metrics:
-                results_cache:
-                  cache:
-                    memcached_client:
-                      addresses:
-                      - localhost
-
           metrics_generator:
+            ring:
+              kvstore:
+                store: memberlist
+            processor:
+              service_graphs: {}
+              span_metrics: {}
+            storage:
+              path: /var/tempo/generator/wal
+              remote_write: []
+
+          overrides:
+            defaults:
+              metrics_generator:
+                processors: [service-graphs, span-metrics]
+
+        persistence:
+          enabled: true
+          size: 10Gi
+
+        receiver:
+          otlp:
+            protocols:
+              http: true
+              grpc: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lgtm
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lgtm-tempo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: tempo
+    targetRevision: "1.24.4"
+    helm:
+      values: |
+        tempo:
+          storage:
+            trace:
+              backend: local
+              local:
+                path: /var/tempo/traces
+              blocklist_poll: 5m
+          
+          metrics_generator:
+          tempo:
+            storage:
+              trace:
+                backend: local
+                local:
+                  path: /var/tempo/traces
+                blocklist_poll: 5m
+            search_enabled: true
+          
+            metrics_generator:
             ring:
               kvstore:
                 store: memberlist
