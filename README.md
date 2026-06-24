@@ -95,7 +95,110 @@ All should be `Synced` + `Healthy`.
 
 ---
 
-## Service Port Reference
+## Container Images & Dependencies
+
+### OCI Images Used
+
+| Component | Image | Version | Source | Purpose |
+|---|---|---|---|---|
+| Grafana | `grafana/grafana` | 12.3.1 | Grafana Labs | Visualization UI |
+| Loki | `grafana/loki` | 2.8.2 | Grafana Labs | Log aggregation |
+| Tempo | `grafana/tempo` | 2.9.0 | Grafana Labs | Trace storage |
+| Prometheus | `prom/prometheus` | v2.48.0 | Prometheus Project | Metrics storage |
+| Temporal Server | `temporalio/auto-setup` | 1.23.0 | Temporal Technologies | Workflow orchestration |
+| Temporal UI | `temporalio/ui` | 2.31.2 | Temporal Technologies | Workflow management UI |
+| PostgreSQL | `postgres` | 15-alpine | PostgreSQL | Temporal metadata DB |
+| Python (build) | `python` | 3.11-slim | Python | Sample-app base image |
+
+### Helm Charts
+
+| Chart | Repo | Version | Namespace | Purpose |
+|---|---|---|---|---|
+| `grafana` | https://grafana.github.io/helm-charts | Latest | lgtm | Grafana deployment |
+| `loki-stack` | https://grafana.github.io/helm-charts | Latest | lgtm | Loki + Promtail |
+| `tempo` | https://grafana.github.io/helm-charts | 1.24.4 | lgtm | Tempo metrics generator |
+| `prometheus-operator` | https://prometheus-community.github.io/helm-charts | Latest | lgtm | Prometheus + Operator |
+
+### Custom Container Images
+
+**sample-app**: User-built Flask application
+- **Dockerfile**: `sample-app/Dockerfile`
+- **Base image**: `python:3.11-slim` (120 MB)
+- **Build command**: `./infra/build-and-push.sh k3d-lab-registry:5000 sample-app latest`
+- **Image size**: ~250 MB (with dependencies)
+- **Registry**: Local k3d registry (`localhost:5000`)
+- **Image tag**: Latest git commit SHA or manual tag
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py ./
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8080
+CMD ["python","app.py"]
+```
+
+**Dependencies** (python:3.11-slim):
+- Flask 3.0.0 (HTTP framework)
+- prometheus-client 0.19.0 (Prometheus metrics)
+- opentelemetry-api 1.21.0 (Tracing SDK)
+- opentelemetry-sdk 1.21.0 (Tracing SDK)
+- opentelemetry-exporter-otlp 1.21.0 (OTLP exporter)
+
+---
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         k3d Cluster                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌──────────────────────┐  ┌──────────────────────────────────┐  │
+│  │  sample-app          │  │     LGTM Stack                   │  │
+│  │  ─────────────────   │  │     ──────────────────           │  │
+│  │  2 × Flask pods      │  │  ┌────────────────────────────┐  │  │
+│  │  ├─ /work            │  │  │ Grafana (visualization)    │  │  │
+│  │  ├─ /metrics         │  │  │ └─ Prometheus datasource   │  │  │
+│  │  ├─ /health          │  │  │ └─ Loki datasource         │  │  │
+│  │  │                   │  │  │ └─ Tempo datasource        │  │  │
+│  │  └─ Prometheus       │──│──→ Prometheus (metrics)       │  │  │
+│  │    metrics export    │  │  │   └─ 15d retention         │  │  │
+│  │                      │  │  │   └─ SLI/SLO recording     │  │  │
+│  │  ├─ JSON logs        │──│──→ Loki (logs)                │  │  │
+│  │  │ (error, info)     │  │  │   └─ boltdb-shipper        │  │  │
+│  │  │                   │  │  │   └─ 50GB local storage     │  │  │
+│  │  └─ OTLP traces      │──│──→ Tempo (traces)             │  │  │
+│  │    (gRPC 4317)       │  │  │   └─ Single-binary         │  │  │
+│  │                      │  │  │   └─ local-blocks proc     │  │  │
+│  │  NetworkPolicy:      │  │  │   └─ Remote-write to prom  │  │  │
+│  │  ├─ Deny by default  │  │  │   └─ 50GB local storage    │  │  │
+│  │  ├─ Allow DNS→kubedns│  │  └────────────────────────────┘  │  │
+│  │  └─ Allow→Tempo 4317 │  │  ┌────────────────────────────┐  │  │
+│  │                      │  │  │ Promtail (log collector)   │  │  │
+│  │  RBAC:               │  │  │ └─ 2 agents per node       │  │  │
+│  │  └─ get/list pods    │  │  │ └─ scrapes /var/log        │  │  │
+│  │                      │  │  └────────────────────────────┘  │  │
+│  └──────────────────────┘  │  ┌────────────────────────────┐  │  │
+│                             │  │ Temporal (workflows)       │  │  │
+│                             │  │ ├─ Temporal server         │  │  │
+│  ┌──────────────────────┐   │  │ ├─ Temporal UI (8233)      │  │  │
+│  │  ArgoCD              │   │  │ ├─ PostgreSQL 15           │  │  │
+│  │  ──────────          │   │  │ └─ Ops worker              │  │  │
+│  │  platform-root app   │   │  │ (OpsHeartbeatWorkflow)     │  │  │
+│  │  └─ syncs git→cluster│   │  └────────────────────────────┘  │  │
+│  └──────────────────────┘   └──────────────────────────────────┘  │
+│                                                                     │
+│  git: https://github.com/AyubMulla/normal-work                    │
+│       └─ GitOps manifests (gitops/apps/, gitops/components/)      │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 
 | Service | Local URL | Port mapping | Namespace | Service |
 |---|---|---|---|---|
