@@ -57,3 +57,7 @@ data:
       - job_name: 'prometheus'
         static_configs:
           - targets: ['localhost:9090']
+      - job_name: 'sample-app'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['sample-app.sample-app.svc.cluster.local:80']
