@@ -11,14 +11,31 @@ spec:
     targetRevision: "1.24.4"
     helm:
       values: |
+        tempo:
+          storage:
+            trace:
+              backend: local
+              local:
+                path: /var/tempo/traces
+
         persistence:
           enabled: true
           size: 10Gi
+
         receiver:
           otlp:
             protocols:
               http: true
               grpc: true
+
+        metricsGenerator:
+          enabled: true
+          config:
+            processor:
+              service_graphs:
+                dimensions: []
+              span_metrics:
+                dimensions: []
   destination:
     server: https://kubernetes.default.svc
     namespace: lgtm
